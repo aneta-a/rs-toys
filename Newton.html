@@ -1,0 +1,158 @@
+<html>
+	<head>
+			<meta charset="utf-8"  />                                            
+	
+		<title>The Newton Fractals on the Riemann Sphere</title>
+		<script type="text/javascript" src="three.js"></script>
+		<script type="text/javascript" src="Complex.js"></script>
+		<script type="text/javascript" src="ComplexUtils.js"></script>
+		<script type="text/javascript" src="grid.js"></script>
+		<script type="text/javascript" src="pointMarkers.js"></script>
+		<script type="text/javascript" src="RationalFuncs.js"></script>
+		<script type="text/javascript" src="DataParser.js"></script>
+		<script type="text/javascript" src="baseData.js"></script>
+		<script type="text/javascript" src="UIUtils.js"></script>
+		<script type="text/javascript" src="complexIO.js"></script>
+		<script type="text/javascript" src="RSCanvas.js"></script>
+		<script type="text/javascript" src="InteractiveCanvas.js"></script>
+		<script type="text/javascript">
+		var mainIC, infoIC;
+		var mainShaderMap;
+		var maxIter;
+		var iterStep = 1;
+		var maximalIter = 200;
+		var minimalIter = 1;
+		var startRootsNumber = 3;
+			function pageInit() {
+			document.getElementById('roots-number').value = startRootsNumber;
+			var dataStructure = makeSymmetricNewtonDataStructure(startRootsNumber);
+			var dataObject = parseJuliaData(dataStructure);
+			mainShaderMap = initJuliaMap(dataStructure, {checkJulia: true});
+			maxIter = mainShaderMap.uniforms.Iterations.value;
+			console.log("ai",mainShaderMap.uniforms.actualInfinity.value);
+				infoIC = 
+					new InteractiveCanvas(
+							document.getElementById('info-canvas-container'), 
+							new ComplexShaderMap(valueCode, false, {}, valueMethods));
+				infoIC.rsCanvas.rsCanvasId = 'info';
+				infoIC.rsCanvas.selectedPointsLimit = 10;
+				infoIC.rsCanvas.setNewSelectedPoints(getSymmetricRoots(startRootsNumber));
+				mainIC = new InteractiveCanvas(
+							document.getElementById('main-canvas-container'), 
+							mainShaderMap);
+				mainIC.rsCanvas.rsCanvasId = 'main';
+				mainIC.rsCanvas.selectedPointsLimit = 0;
+				//infoIC.rsCanvas.addSelectedPoint(
+				//	new Complex(MandelbrotJuliaUniforms.seed.value.x,
+				//				MandelbrotJuliaUniforms.seed.value.y));
+				document.getElementById('iterations-label').innerHTML = maxIter;
+				
+				infoIC.rsCanvas.canvas3d.addEventListener('selectedPointsChanged',onSelectedPointsChanged);
+				/*var infoContainer = document.getElementById('info-canvas-container');
+				var testLine = new ComplexIO(infoContainer, {label: 'z='});
+				var testLinen = new ComplexIO(infoContainer, {label: 'n=', input: false});
+				var testLined = new ComplexIO(infoContainer, {label: 'd=', input: false});
+				var testLinedn = new ComplexIO(infoContainer, {label: 'dn=', input: false});
+				var testLinedd = new ComplexIO(infoContainer, {label: 'dd=', input: false});
+				var testBtn = document.createElement('input');
+				testBtn.setAttribute('type', 'button');
+				testBtn.setAttribute('value', 'iterate');
+				infoContainer.appendChild(testBtn);*/
+				
+				var testEvalFunction = function (z) {
+					return testEval(dataObject, z).res;
+				} 
+				testBtn.onclick = function (event) {
+					var o = testEval(dataObject, testLine.getValue());
+					testLine.setValue(o.res);
+					testLinen.setValue(o.n);
+					testLined.setValue(o.d);
+					testLinedn.setValue(o.dn);
+					testLinedd.setValue(o.dd);
+				}
+				
+				
+				
+		}
+		function copySelectedPoints(dir) {
+			var fromRS, toRS;
+			if (dir.substring(0, 1).toLowerCase() == 'r') {
+				fromRS = mainIC.rsCanvas;
+				toRS = infoIC.rsCanvas;
+			} else {
+				fromRS = infoIC.rsCanvas;
+				toRS = mainIC.rsCanvas;
+			}
+			var ps = fromRS.getSelectedPoints();
+			console.log(ps);
+			toRS.addSelectedPoints(ps);
+			if (toRS.rsCanvasId == 'main' && ps.length > 0) {
+				mainShaderMap.uniforms.seed.value = new THREE.Vector2(ps[0].re, ps[0].i);
+				mainIC.rsCanvas.updateSphereMaterial(mainShaderMap);
+			}
+		}
+		function increaseIterationsNumber() {
+			changeIterationsNumber(iterStep);
+		}
+		function decreaseIterationsNumber() {
+			changeIterationsNumber(-iterStep);
+		}
+		function changeIterationsNumber(delta) {
+			maxIter = Math.max(Math.min(maxIter + delta, maximalIter), minimalIter);
+			mainShaderMap.uniforms.Iterations.value = maxIter;
+			mainShaderMap.updateUniformsDeclaration();
+			mainIC.rsCanvas.updateSphereMaterial(mainShaderMap, true);
+			document.getElementById('iterations-label').innerHTML = maxIter;
+		}
+		
+		function rootsNumChanged(event) {
+				console.log("rootNumChanged");
+		
+		infoIC.rsCanvas.setNewSelectedPoints(getSymmetricRoots(document.getElementById('roots-number').value));
+		}
+		
+		function onSelectedPointsChanged(event) {
+			
+				updateMainCanvas(infoIC.rsCanvas.getSelectedPoints());
+				
+		}
+		function updateMainCanvas(ps) {
+				
+				if (ps.length >= 3) {
+				console.log("SelectionChanged", ps.length, ps[0].toString(true));
+				var dataStructure =  makeNewtonDataStructure(ps);
+				mainShaderMap = initJuliaMap(dataStructure, {checkJulia: true});
+				mainIC.rsCanvas.updateSphereMaterial(mainShaderMap, true);
+				}
+			
+		}
+		</script>
+		<link rel="stylesheet" type="text/css" href="riemannsphere.css"></link>
+	</head>
+	<body onload="pageInit();">
+	<h1>Newton Fractals on the Riemann sphere</h1>
+		
+		<table><tr><th>Newton fractal</th><th>Color map</th></tr>
+		<tr><td width="512" id="main-canvas-container">
+ 		</td><td width="530" id="info-canvas-container">
+ 		</td><td>
+ 		<label for="roots-number">Roots number</label><input type="number" id="roots-number" min="3" max="5" onchange="rootsNumChanged(event);" value="3"/>
+    	<p><i>Click and drag</i> to rotate the sphere, <i>Ctrl-click and drag</i> to draw on it's surface.</p>
+    	<p>For Moebius transformation, <i>double-click</i> somewhere on the sphere surface to add a reference point. 
+    	<i>Double-click</i> a reference point to remove it. <i>Drag</i> a reference point to apply
+    	the transformation moving this point to the new place and living the other reference points
+    	unchanged. </p>
+    	<!-- p><i>Drag</i> a red marker on the right sphere to choose a point on the Mandelbrot set, 
+    	enjoy a Julia set for this point on the left sphere. <i>Double-click</i> the red marker 
+    	to remove it, <i>Shift-double-click</i> to make it appear in another place. </p-->
+    	
+      	
+    	</td></tr>
+    	<tr><td><p>Number of iterations:
+    	<input type="button" value="/\" onclick="increaseIterationsNumber();"/>
+    	<input type="button" value="\/" onclick="decreaseIterationsNumber();"/>
+    	<label id="iterations-label">500</label></p>
+    	</td><td/></tr></table>
+		
+	</body>
+</html>

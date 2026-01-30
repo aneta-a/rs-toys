@@ -1,0 +1,195 @@
+<html>
+	<head>
+			<meta charset="utf-8"  />                                            
+	
+		<title>Evaluation of some rational functions</title>
+		<script type="text/javascript" src="three.js"></script>
+		<script type="text/javascript" src="Complex.js"></script>
+		<script type="text/javascript" src="ComplexUtils.js"></script>
+		<script type="text/javascript" src="grid.js"></script>
+		<script type="text/javascript" src="pointMarkers.js"></script>
+		<script type="text/javascript" src="RationalFuncs.js"></script>
+		<script type="text/javascript" src="DataParser.js"></script>
+		<script type="text/javascript" src="UIUtils.js"></script>
+		<script type="text/javascript" src="complexIO.js"></script>
+		<script type="text/javascript" src="RSCanvas.js"></script>
+		<script type="text/javascript" src="InteractiveCanvas.js"></script>
+		<script type="text/javascript">
+		var mainIC, infoIC;
+		var mainShaderMap;
+		var maxIter;
+		var iterStep = 1;
+		var maximalIter = 200;
+		var minimalIter = 1;
+		var outputLine;
+		var newton5Data;
+		var dataObject;
+		
+			function pageInit() {
+			
+			var dataStructure = makeSymmetricNewtonDataStructure(5);
+			newton5Data = dataStructure;
+			document.getElementById('newton-5').checked = true;
+			
+			dataObject = parseJuliaData(dataStructure);
+			mainShaderMap = initJuliaMap(dataStructure, false, false, false);//{checkJulia: false, checkCycles: false, branchInverse: false});
+			maxIter = mainShaderMap.uniforms.Iterations.value;
+			console.log("ai",mainShaderMap.uniforms.actualInfinity.value);
+				/*infoIC = 
+					new InteractiveCanvas(
+							document.getElementById('info-canvas-container'), 
+							new ComplexShaderMap(mandelbrotCode, false, mandelbrotUniforms));
+				infoIC.rsCanvas.rsCanvasId = 'info';*/
+				mainIC = new InteractiveCanvas(
+							document.getElementById('main-canvas-container'), 
+							mainShaderMap);
+				mainIC.rsCanvas.rsCanvasId = 'main';
+				/*infoIC.rsCanvas.selectedPointsLimit = 1;
+				mainIC.rsCanvas.selectedPointsLimit = 0;
+				infoIC.rsCanvas.addSelectedPoint(
+					new Complex(MandelbrotJuliaUniforms.seed.value.x,
+								MandelbrotJuliaUniforms.seed.value.y));*/
+				document.getElementById('iterations-label').innerHTML = maxIter;
+				
+				//infoIC.rsCanvas.canvas3d.addEventListener('selectedPointsChanged',onSelectedPointsChanged);
+				var infoContainer = document.getElementById('info-canvas-container');
+				var testLine = new ComplexIO(infoContainer, {label: 'z='});
+				var testLinen = new ComplexIO(infoContainer, {label: 'n=', input: false});
+				var testLined = new ComplexIO(infoContainer, {label: 'd=', input: false});
+				var testLinedn = new ComplexIO(infoContainer, {label: 'dn=', input: false});
+				var testLinedd = new ComplexIO(infoContainer, {label: 'dd=', input: false});
+				var testLinedz = document.createTextNode('1');
+				infoContainer.appendChild(document.createTextNode('dz = '));
+				infoContainer.appendChild(testLinedz);
+				infoContainer.appendChild(document.createElement('br'));
+				var testBtn = document.createElement('input');
+				testBtn.setAttribute('type', 'button');
+				testBtn.setAttribute('value', 'iterate');
+				infoContainer.appendChild(testBtn);
+				
+				var testEvalFunction = function (z) {
+					return testEval(dataObject, z).res;
+				} 
+				outputLine = document.createElement('div');
+				infoContainer.appendChild(outputLine);
+				getOutputDomElement(dataObject, outputLine);
+				testBtn.onclick = function (event) {
+					var o = testEval(dataObject, testLine.getValue());
+					testLine.setValue(o.res);
+					testLinen.setValue(o.n);
+					testLined.setValue(o.d);
+					testLinedn.setValue(o.dn);
+					testLinedd.setValue(o.dd);
+					testLinedz.nodeValue = o.dz;
+				}
+				
+				
+				
+		}
+		function copySelectedPoints(dir) {
+			var fromRS, toRS;
+			if (dir.substring(0, 1).toLowerCase() == 'r') {
+				fromRS = mainIC.rsCanvas;
+				toRS = infoIC.rsCanvas;
+			} else {
+				fromRS = infoIC.rsCanvas;
+				toRS = mainIC.rsCanvas;
+			}
+			var ps = fromRS.getSelectedPoints();
+			console.log(ps);
+			toRS.addSelectedPoints(ps);
+			if (toRS.rsCanvasId == 'main' && ps.length > 0) {
+				mainShaderMap.uniforms.seed.value = new THREE.Vector2(ps[0].re, ps[0].i);
+				mainIC.rsCanvas.updateSphereMaterial(mainShaderMap);
+			}
+		}
+		function increaseIterationsNumber() {
+			changeIterationsNumber(iterStep);
+		}
+		function decreaseIterationsNumber() {
+			changeIterationsNumber(-iterStep);
+		}
+		function changeIterationsNumber(delta) {
+			maxIter = Math.max(Math.min(maxIter + delta, maximalIter), minimalIter);
+			mainShaderMap.uniforms.Iterations.value = maxIter;
+			mainShaderMap.updateUniformsDeclaration();
+			mainIC.rsCanvas.updateSphereMaterial(mainShaderMap, true);
+			document.getElementById('iterations-label').innerHTML = maxIter;
+		}
+		
+		function onSelectedPointsChanged(event) {
+			
+				var ps = infoIC.rsCanvas.getSelectedPoints();
+				if (ps.length) {
+				mainShaderMap.uniforms.seed.value = new THREE.Vector2(ps[0].re, ps[0].i);
+				mainIC.rsCanvas.updateSphereMaterial(mainShaderMap);
+				}
+			
+		}
+		
+		
+		function selectMap(event) {
+			var dataAvailable = {
+				mandel: MandelData1,
+				mandeli: MandelDatai,
+				newton3: juliaData3,
+				newton4: juliaData4,
+				newton5: newton5Data,
+				ratio13: juliaData13,
+				ratio13_: juliaData13_
+			}
+		
+			var val = UIU.getRBSelectedValue('func-type');
+			var newData = dataAvailable[val];
+			var newMap = initJuliaMap(newData, false, false, false);
+			
+			dataObject = parseJuliaData(newData);
+			
+			mainShaderMap = newMap;
+						maxIter = mainShaderMap.uniforms.Iterations.value;
+				document.getElementById('iterations-label').innerHTML = maxIter;
+			
+			mainShaderMap.updateUniformsDeclaration();
+			mainIC.rsCanvas.updateSphereMaterial(mainShaderMap, true);
+			getOutputDomElement(parseJuliaData(newData), outputLine);
+			
+		}
+		
+		
+		</script>
+		<link rel="stylesheet" type="text/css" href="riemannsphere.css"></link>
+	</head>
+	<body onload="pageInit();">
+	<h1>Evaluation of some rational functions</h1>
+		
+		<table><tr><th>The result</th><th>Data</th></tr>
+		<tr><td width="512" id="main-canvas-container">
+ 		</td><td width="530" id="info-canvas-container">
+ 		<input type="radio" id="mandel" name="func-type" value="mandel" onchange="selectMap();"></input>z<sup>2</sup>-1<br/>
+ 		<input type="radio" id="mandeli" name="func-type" value="mandeli" onchange="selectMap();"></input>z<sup>2</sup>+i<br/>
+ 		<input type="radio" id="newton-3" name="func-type" value="newton3" onchange="selectMap();"></input>Newton z<sup>3</sup>-1<br/>
+ 		<input type="radio" id="newton-4" name="func-type" value="newton4" onchange="selectMap();" ></input>Newton z<sup>4</sup>-1<br/>
+ 		<input type="radio" id="newton-5" name="func-type" value="newton5" onchange="selectMap();" checked="checked"></input>Newton z<sup>5</sup>-1<br/>
+ 		<input type="radio" id="ratio-13" name="func-type" value="ratio13" onchange="selectMap();"></input>cui<br/>
+ 		<input type="radio" id="ratio-13_" name="func-type" value="ratio13_" onchange="selectMap();"></input>cui-plot<br/>
+ 		
+ 		</td><td>
+    	<p><i>Click and drag</i> to rotate the sphere, <i>Ctrl-click and drag</i> to draw on it's surface.</p>
+    	<p>For Moebius transformation, <i>double-click</i> somewhere on the sphere surface to add a reference point. 
+    	<i>Double-click</i> a reference point to remove it. <i>Drag</i> a reference point to apply
+    	the transformation moving this point to the new place and living the other reference points
+    	unchanged. </p>
+    	<!-- p><i>Drag</i> a red marker on the right sphere to choose a point on the Mandelbrot set, 
+    	enjoy a Julia set for this point on the left sphere. <i>Double-click</i> the red marker 
+    	to remove it, <i>Shift-double-click</i> to make it appear in another place. </p-->
+    	
+      	
+    	</td></tr>
+    	<tr><td><p>Number of iterations:
+    	<input type="button" value="/\" onclick="increaseIterationsNumber();"/>
+    	<input type="button" value="\/" onclick="decreaseIterationsNumber();"/>
+    	<label id="iterations-label">500</label></p>
+    	</td><td/></tr></table>
+		
+	</body>
+</html>

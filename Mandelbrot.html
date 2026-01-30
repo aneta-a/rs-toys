@@ -1,0 +1,118 @@
+<html>
+	<head>
+			<meta charset="utf-8"  />                                            
+	
+		<title>The Mandelbrot Set on the Riemann Sphere</title>
+		<script type="text/javascript" src="three.js"></script>
+		<script type="text/javascript" src="Complex.js"></script>
+		<script type="text/javascript" src="ComplexUtils.js"></script>
+		<script type="text/javascript" src="grid.js"></script>
+		<script type="text/javascript" src="pointMarkers.js"></script>
+		<script type="text/javascript" src="MandelbrotShaderData.js"></script>
+		<script type="text/javascript" src="MandelbrotJuliaData.js"></script>
+		<script type="text/javascript" src="UIUtils.js"></script>
+		<script type="text/javascript" src="RSCanvas.js"></script>
+		<script type="text/javascript" src="InteractiveCanvas.js"></script>
+		<script type="text/javascript">
+		var mainIC, infoIC;
+		var mainShaderMap;
+		var maxIter;
+		var iterStep = 50;
+		var maximalIter = 1600;
+		var minimalIter = 100;
+			function pageInit() {
+			mainShaderMap = new ComplexShaderMap(MandelbrotJuliaCode, false, 
+												MandelbrotJuliaUniforms, 
+												MandelbrotJuliaMethods);
+			maxIter = mainShaderMap.uniforms.Iterations.value;
+				infoIC = 
+					new InteractiveCanvas(
+							document.getElementById('info-canvas-container'), 
+							new ComplexShaderMap(mandelbrotCode, false, mandelbrotUniforms));
+				infoIC.rsCanvas.rsCanvasId = 'info';
+				mainIC = new InteractiveCanvas(
+							document.getElementById('main-canvas-container'), 
+							mainShaderMap);
+				mainIC.rsCanvas.rsCanvasId = 'main';
+				infoIC.rsCanvas.selectedPointsLimit = 1;
+				mainIC.rsCanvas.selectedPointsLimit = 0;
+				infoIC.rsCanvas.addSelectedPoint(
+					new Complex(MandelbrotJuliaUniforms.seed.value.x,
+								MandelbrotJuliaUniforms.seed.value.y));
+				document.getElementById('iterations-label').innerHTML = maxIter;
+				
+				infoIC.rsCanvas.canvas3d.addEventListener('selectedPointsChanged',onSelectedPointsChanged);
+				
+				
+				
+		}
+		function copySelectedPoints(dir) {
+			var fromRS, toRS;
+			if (dir.substring(0, 1).toLowerCase() == 'r') {
+				fromRS = mainIC.rsCanvas;
+				toRS = infoIC.rsCanvas;
+			} else {
+				fromRS = infoIC.rsCanvas;
+				toRS = mainIC.rsCanvas;
+			}
+			var ps = fromRS.getSelectedPoints();
+			console.log(ps);
+			toRS.addSelectedPoints(ps);
+			if (toRS.rsCanvasId == 'main' && ps.length > 0) {
+				mainShaderMap.uniforms.seed.value = new THREE.Vector2(ps[0].re, ps[0].i);
+				mainIC.rsCanvas.updateSphereMaterial(mainShaderMap);
+			}
+		}
+		function increaseIterationsNumber() {
+			changeIterationsNumber(iterStep);
+		}
+		function decreaseIterationsNumber() {
+			changeIterationsNumber(-iterStep);
+		}
+		function changeIterationsNumber(delta) {
+			maxIter = Math.max(Math.min(maxIter + delta, maximalIter), minimalIter);
+			mainShaderMap.uniforms.Iterations.value = maxIter;
+			mainShaderMap.updateUniformsDeclaration();
+			mainIC.rsCanvas.updateSphereMaterial(mainShaderMap, true);
+			document.getElementById('iterations-label').innerHTML = maxIter;
+		}
+		
+		function onSelectedPointsChanged(event) {
+			
+				var ps = infoIC.rsCanvas.getSelectedPoints();
+				if (ps.length) {
+				mainShaderMap.uniforms.seed.value = new THREE.Vector2(ps[0].re, ps[0].i);
+				mainIC.rsCanvas.updateSphereMaterial(mainShaderMap);
+				}
+			
+		}
+		</script>
+		<link rel="stylesheet" type="text/css" href="riemannsphere.css"></link>
+	</head>
+	<body onload="pageInit();">
+	<h1>Mandelbrot and Julia set on the Riemann sphere</h1>
+		
+		<table><tr><th>Julia set</th><th>Mandelbrot set</th></tr>
+		<tr><td width="512" id="main-canvas-container">
+ 		</td><td width="512" id="info-canvas-container">
+ 		</td><td>
+    	<p><i>Click and drag</i> to rotate the sphere, <i>Ctrl-click and drag</i> to draw on it's surface.</p>
+    	<p>For Moebius transformation, <i>double-click</i> somewhere on the sphere surface to add a reference point. 
+    	<i>Double-click</i> a reference point to remove it. <i>Drag</i> a reference point to apply
+    	the transformation moving this point to the new place and living the other reference points
+    	unchanged. </p>
+    	<p><i>Drag</i> a red marker on the right sphere to choose a point on the Mandelbrot set, 
+    	enjoy a Julia set for this point on the left sphere. <i>Double-click</i> the red marker 
+    	to remove it, <i>Shift-double-click</i> to make it appear in another place. </p>
+    	
+    	<p>Based on <a href="http://hvidtfeldts.net/WebGL/webgl.html">Syntopia example</a></p>
+      	
+    	</td></tr>
+    	<tr><td><p>Number of iterations:
+    	<input type="button" value="/\" onclick="increaseIterationsNumber();"/>
+    	<input type="button" value="\/" onclick="decreaseIterationsNumber();"/>
+    	<label id="iterations-label">500</label></p>
+    	</td><td/></tr></table>
+		
+	</body>
+</html>
